@@ -1,0 +1,141 @@
+import groovy.time.TimeCategory
+import org.openapitools.generator.gradle.plugin.tasks.GenerateTask
+
+buildscript {
+    dependencies {
+        classpath('com.kidsworld.openapitool:codegen-springkidsworld:1.0.0-SNAPSHOT')
+    }
+}
+
+plugins {
+    id 'java-library'
+    id 'io.spring.dependency-management' version '1.1.0'
+    id 'io.freefair.lombok' version '6.6.1'
+
+    // @see https://github.com/OpenAPITools/openapi-generator/blob/master/modules/openapi-generator-gradle-plugin/README.adoc
+    id "org.openapi.generator" version "6.2.1"
+
+    // @see https://asciidoctor.org/docs/asciidoctor-gradle-plugin/
+    // @see https://asciidoctor.github.io/asciidoctor-gradle-plugin/development-3.x/
+    id("org.asciidoctor.jvm.convert") version "3.3.2"
+}
+
+group = 'com.kidsworld.subscriptions'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = '11'
+
+dependencies {
+
+    implementation 'org.valid4j:valid4j:0.5.0'
+    implementation 'org.postgresql:postgresql'
+
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.14.2'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.14.2'
+    implementation platform("org.springframework.boot:spring-boot-dependencies:${springBootVersion}")
+    implementation 'org.springframework.data:spring-data-jdbc'
+    compileOnly 'org.springframework:spring-context'
+    compileOnly 'org.springframework:spring-web'
+    compileOnly 'jakarta.servlet:jakarta.servlet-api'
+    compileOnly 'com.fasterxml.jackson.core:jackson-annotations'
+    compileOnly 'jakarta.validation:jakarta.validation-api:2.0.2'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation "org.testcontainers:testcontainers:${testContainerVersion}"
+    testImplementation "org.testcontainers:junit-jupiter:${testContainerVersion}"
+    testRuntimeOnly "org.testcontainers:postgresql:${testContainerVersion}"
+    testRuntimeOnly 'org.postgresql:postgresql:42.5.1'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+def apiSpecsRoot = "$projectDir/src/api-specs"
+def specPath = "$apiSpecsRoot/specs/openapi.yaml"
+def generatedDir = "$apiSpecsRoot/.generated"
+def docDir = "$generatedDir/src/main/resources/docs/view-apis"
+
+openApiValidate {
+    inputSpec.set(specPath)
+    recommend.set(true)
+}
+
+openApiGenerate {
+    inputSpec.set(specPath)
+    generatorName.set("spring-kidsworld-api")
+    configFile.set("$apiSpecsRoot/config.json")
+    outputDir.set(generatedDir)
+}
+
+tasks.named("openApiGenerate") {
+    it.dependsOn("openApiValidate")
+    doFirst {
+        def javaSourceDir = "$generatedDir/src/main/java";
+        def genDirLastModified = new Date(file(javaSourceDir).lastModified())
+        def specLastModified = new Date(file(specPath).lastModified())
+        def diff
+        use(TimeCategory) {
+            diff = (genDirLastModified - specLastModified).toMilliseconds()
+            if(diff < 0) {
+                delete generatedDir
+            } else {
+                if(file(javaSourceDir).exists()) {
+                    throw new StopExecutionException()
+                }
+            }
+        }
+    }
+}
+
+task openApiJsonGenerate(type: GenerateTask) {
+    inputSpec.set(specPath)
+    generatorName.set("openapi")
+    outputDir.set(docDir)
+    doLast {
+        copy {
+            from("$apiSpecsRoot/docs")
+            into(docDir)
+        }
+    }
+}
+
+task openApiGenernalAsciidocGenerate(type: GenerateTask) {
+    it.dependsOn("openApiGenerate")
+    inputSpec.set(specPath)
+    generatorName.set("asciidoc")
+    outputDir.set("$docDir/asciidoc")
+    doFirst {
+        def genDirLastModified = new Date(file(generatedDir).lastModified())
+        def specLastModified = new Date(file(specPath).lastModified())
+        def diff
+        use(TimeCategory) {
+            diff = (genDirLastModified - specLastModified).toMilliseconds()
+            if(diff >= 0 && file("$docDir/asciidoc").exists()) {
+                throw new StopExecutionException()
+            }
+        }
+    }
+}
+
+asciidoctor {
+    dependsOn("openApiGenernalAsciidocGenerate")
+    def dir = "$docDir/asciidoc"
+    sourceDir file(dir)
+    sources {
+        include 'index.adoc'
+    }
+    outputDir file(dir)
+}
+
+task openApiGenernalHtmlGenerate(type: GenerateTask) {
+    inputSpec.set(specPath)
+    generatorName.set("html2")
+    outputDir.set("$docDir/html")
+}
+
+tasks.compileJava.dependsOn tasks.openApiGenerate, tasks.openApiJsonGenerate, tasks.openApiGenernalHtmlGenerate, tasks.asciidoctor
+
+sourceSets.main.java.srcDir "${openApiGenerate.outputDir.get()}/src/main/java"
+sourceSets.main.resources.srcDir "${openApiGenerate.outputDir.get()}/src/main/resources"
+
+

@@ -1,0 +1,59 @@
+plugins {
+    id 'java'
+    id("io.freefair.lombok") version "5.1.0"
+    id 'org.springframework.boot' version '2.7.1'
+    id 'io.spring.dependency-management' version '1.1.0'
+
+    // open api code generator
+    id "org.openapi.generator" version "6.3.0"
+}
+
+group = 'com.github.dhslrl321'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = '11'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+/**
+ * start for oas
+ */
+def baseDir = "$projectDir/src/api-spec"
+def specDir = "$baseDir/spec"
+def specFilename = "api-spec.yaml"
+
+openApiValidate {
+    inputSpec = "$specDir/api-spec.yaml".toString()
+}
+
+openApiGenerate {
+    generatorName = "java"
+    inputSpec = "$specDir/$specFilename".toString()
+    outputDir = "$baseDir/.generated".toString()
+    templateDir = "$baseDir/templates"
+
+    apiPackage = "com.github.dhslrl321.openapi"
+    invokerPackage = "com.github.dhslrl321.openapi.invoker"
+    modelPackage = "com.github.dhslrl321.openapi.model"
+    configOptions = [
+            dateLibrary: "java8"
+    ]
+}
+
+compileJava.dependsOn tasks.openApiValidate
+
+/**
+ * end of oas
+ */
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+sourceSets.main.java.srcDir "${openApiGenerate.outputDir.get()}/src/main/java"

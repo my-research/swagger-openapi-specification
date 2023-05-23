@@ -1,1 +1,3 @@
 rootProject.name = 'swagger-openapi-specification'
+
+include 'hands-on'
