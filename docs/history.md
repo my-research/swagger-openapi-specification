@@ -24,3 +24,7 @@ OpenAPI Generator는 Java, Python, JavaScript, TypeScript, Go, C# 등과 같은 
 API 코드 생성 프로세스를 간소화하고, 다양한 언어 구현 간의 일관성을 향상시키며, API 사양 준수를 보장합니다.
 
 Swagger OpenAPI Generator는 이름 변경과 조직 전환을 거쳤지만 OpenAPI 사양에 기반한 코드와 문서를 생성하고 RESTful API의 개발 프로세스를 간소화하는 것이 핵심 목적입니다.
+
+### refs
+
+- [https://dev.to/mikeralphson/a-brief-history-of-the-openapi-specification-3g27](https://dev.to/mikeralphson/a-brief-history-of-the-openapi-specification-3g27)
